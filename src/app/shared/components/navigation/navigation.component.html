@@ -1,0 +1,58 @@
+<div class="sidenav-container">
+  <mat-sidenav-container>
+    <!-- Side Navigation -->
+    <mat-sidenav mode="side" [opened]="isExpanded()" class="sidenav">
+      <!-- App Logo and Title -->
+      <div class="sidenav-header">
+        <div class="logo-container">
+          <div class="app-logo">
+            <mat-icon>school</mat-icon>
+          </div>
+          <div class="app-title">
+            <h1>EduTracker</h1>
+            <p>Performance Management</p>
+          </div>
+        </div>
+        <!-- Toggle Button -->
+        <button mat-icon-button class="toggle-button" (click)="toggleSideNav()">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="nav-links">
+        @for (link of navLinks; track link.path) {
+          <a mat-list-item 
+             [routerLink]="link.path"
+             routerLinkActive="active-link" 
+             class="nav-link">
+            <div class="nav-item">
+              <mat-icon>{{link.icon}}</mat-icon>
+              <div class="link-content">
+                <span class="link-label">{{link.label}}</span>
+                <span class="link-description">{{link.description}}</span>
+              </div>
+            </div>
+          </a>
+        }
+      </div>
+    </mat-sidenav>
+
+    <!-- Main Content -->
+    <mat-sidenav-content>
+      <div class="main-content-wrapper" [class.expanded-content]="isExpanded()" [class.collapsed-content]="!isExpanded()">
+        <!-- Show expand button only when sidebar is collapsed -->
+        @if (!isExpanded()) {
+          <button mat-icon-button class="expand-button" (click)="toggleSideNav()">
+            <mat-icon>menu</mat-icon>
+          </button>
+        }
+        
+        <!-- Project content from parent component -->
+        <div class="content-area">
+          <ng-content></ng-content>
+        </div>
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>

@@ -1,0 +1,73 @@
+<div class="analysis-container">
+  <div class="analysis-header">
+    <h1>Analysis Page</h1>
+  </div>
+
+  <div class="filters-container">
+    <div class="filter-group">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Select Trainee IDs</mat-label>
+        <mat-select (selectionChange)="onTraineeSelectionChange()" [(ngModel)]="traineeIdsValue" multiple>
+          @for (trainee of trainees(); track trainee.id) {
+            <mat-option [value]="trainee.id">{{ trainee.name }} (ID: {{ trainee.id }})</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="filter-group">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Select Subjects</mat-label>
+        <mat-select (selectionChange)="onSubjectSelectionChange()" [(ngModel)]="subjectsValue" multiple>
+          @for (subject of availableSubjects(); track subject) {
+            <mat-option [value]="subject">{{ subject }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="charts-description">
+    <p>
+      <strong>Charts:</strong> The page can show 2 charts at a time. You can drag and drop the charts to rearrange them.
+    </p>
+  </div>
+
+  <div class="charts-container">
+    <div (cdkDropListDropped)="onChartDropped($event)" [cdkDropListData]="visibleCharts()" cdkDropList cdkDropListOrientation="horizontal"
+         class="charts-row">
+      @for (chart of visibleCharts(); track chart.id; let i = $index) {
+        <div class="chart-card" cdkDrag [cdkDragData]="chart">
+          <div class="chart-header" cdkDragHandle>
+            <h3>{{ chart.title }}</h3>
+            <button mat-icon-button matTooltip="Swap with hidden chart" (click)="swapChart(i)">
+              <mat-icon>swap_horiz</mat-icon>
+            </button>
+          </div>
+          <div class="chart-content">
+            @if (i === 0) {
+              <canvas #chartCanvas1></canvas>
+            } @else if (i === 1) {
+              <canvas #chartCanvas2></canvas>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="hidden-chart-button">
+      @if (hiddenChart()) {
+        <div class="hidden-chart">
+          <button mat-raised-button color="primary" cdkDrag [cdkDragData]="hiddenChart()"
+                  (cdkDragStarted)="onHiddenChartDragStart($event)" (cdkDragEnded)="onHiddenChartDragEnd($event)">
+            <mat-icon>drag_indicator</mat-icon>
+            {{ hiddenChart()?.title }}
+          </button>
+          <div class="hidden-canvas">
+            <canvas #chartCanvas3></canvas>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

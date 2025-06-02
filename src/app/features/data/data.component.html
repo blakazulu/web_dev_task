@@ -1,0 +1,266 @@
+<div class="data-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="title-container">
+      <h1 class="gradient-title">Data Management</h1>
+      <p class="subtitle">Manage trainee records and test results</p>
+    </div>
+    <button (click)="addNewTrainee()" class="add-button" color="primary" mat-raised-button>
+      <mat-icon>add</mat-icon>
+      Add Trainee
+    </button>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="content-grid">
+    <!-- Left Column - Filters & Data -->
+    <div class="main-column">
+      <!-- Filters Section -->
+      <mat-card class="filter-card">
+        <mat-card-content>
+          <div class="filter-container">
+            <!-- Search Input -->
+            <mat-form-field appearance="outline" class="filter-input">
+              <mat-label>Use ID:123, >90 for grades above 90, <2023-06-01 for dates before June 2023</mat-label>
+              <input (keyup)="filterQuery && parseAndApplyFilter($event)" [(ngModel)]="filterQuery" matInput>
+              <mat-icon matPrefix class="search-icon">search</mat-icon>
+              <mat-hint>Examples: ID:123 | Name:John | >90 | <80 | Subject:Math</mat-hint>
+            </mat-form-field>
+
+            <!-- Subject Filter Dropdown -->
+            <mat-form-field appearance="outline" class="subject-filter">
+              <mat-label>Subject</mat-label>
+              <mat-select [(ngModel)]="selectedSubject" (selectionChange)="filterBySubject()">
+                <mat-option value="All Subjects">All Subjects</mat-option>
+                <ng-container *ngFor="let subject of subjects; trackBy: trackByFn">
+                  <mat-option [value]="subject">{{ subject }}</mat-option>
+                </ng-container>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Data Cards -->
+      <mat-card class="data-card">
+        <mat-card-header>
+          <mat-card-title>Test Results</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="p-0">
+          <!-- Data Items -->
+          <div class="data-items-container">
+            <ng-container
+                *ngFor="let result of dataSource.data | slice:getStartIndex():getEndIndex(); trackBy: trackByFn">
+              <div class="data-item"
+                   [class.selected-item]="selectedTestResult() && selectedTestResult()?.id === result.id"
+                   (click)="selectTestResult(result)">
+                <div class="data-item-content">
+                  <div class="data-item-header">
+                    <div class="avatar-container">
+                      <div class="avatar">{{ result.traineeName!.charAt(0) || 'U' }}</div>
+                    </div>
+                    <div class="name-container">
+                      <h3 class="trainee-name">{{ result.traineeName }}</h3>
+                      <p class="trainee-id">ID: {{ result.id }}</p>
+                    </div>
+                  </div>
+                  <div class="data-item-details">
+                    <div class="detail-row">
+                      <div class="detail">
+                        <mat-icon class="detail-icon">calendar_today</mat-icon>
+                        <span>{{ formatDate(result.date) }}</span>
+                      </div>
+                      <div class="detail">
+                        <span>{{ result.subject }}</span>
+                      </div>
+                      <div class="detail">
+                        <span class="grade-badge" [ngClass]="getGradeColorClass(result.grade)">
+                          {{ result.grade }}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button mat-icon-button class="edit-button"
+                        (click)="$event.stopPropagation(); selectTestResult(result)">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </div>
+            </ng-container>
+
+            <!-- No data message -->
+            <ng-container *ngIf="dataSource.data.length === 0">
+              <div class="no-data-message">
+                No data matching the filter
+              </div>
+            </ng-container>
+          </div>
+
+          <!-- Pagination -->
+          <div class="pagination-container">
+            <p class="pagination-info">
+              Showing {{ getStartIndex() + 1 }} to
+              {{ Math.min(getEndIndex(), dataSource.data.length) }}
+              of {{ dataSource.data.length }} results
+            </p>
+            <div class="pagination-actions">
+              <button mat-stroked-button
+                      [disabled]="!canNavigatePrevious()"
+                      (click)="navigatePrevious()">
+                Previous
+              </button>
+              <button mat-stroked-button
+                      [disabled]="!canNavigateNext()"
+                      (click)="navigateNext()">
+                Next
+              </button>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Details Panel - Only visible when item is selected or adding new -->
+    <ng-container *ngIf="selectedTestResult() !== null || testResultForm.controls['id'].value">
+      <div class="details-panel">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>{{ selectedTestResult() ? 'Edit' : 'Add' }} Test Result</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <form [formGroup]="testResultForm" class="details-form">
+              <!-- Test Result ID -->
+              <mat-form-field>
+                <mat-label>Test Result ID</mat-label>
+                <input matInput formControlName="id" [readonly]="!!selectedTestResult()">
+                <ng-container *ngIf="testResultForm.controls['id'].hasError('required')">
+                  <mat-error>ID is required</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Trainee ID Selector -->
+              <mat-form-field>
+                <mat-label>Trainee</mat-label>
+                <mat-select formControlName="traineeId">
+                  <ng-container *ngFor="let trainee of trainees(); trackBy: trackByFn">
+                    <mat-option [value]="trainee.id">{{ trainee.name }}</mat-option>
+                  </ng-container>
+                </mat-select>
+                <ng-container *ngIf="testResultForm.controls['traineeId'].hasError('required')">
+                  <mat-error>Trainee is required</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Date Picker -->
+              <mat-form-field>
+                <mat-label>Date</mat-label>
+                <input matInput [matDatepicker]="picker" formControlName="date">
+                <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                <mat-datepicker #picker></mat-datepicker>
+                <ng-container *ngIf="testResultForm.controls['date'].hasError('required')">
+                  <mat-error>Date is required</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Grade Input -->
+              <mat-form-field>
+                <mat-label>Grade</mat-label>
+                <input matInput type="number" formControlName="grade">
+                <ng-container *ngIf="testResultForm.controls['grade'].hasError('required')">
+                  <mat-error>Grade is required</mat-error>
+                </ng-container>
+                <ng-container *ngIf="testResultForm.controls['grade'].hasError('min')">
+                  <mat-error>Grade must be at least 0</mat-error>
+                </ng-container>
+                <ng-container *ngIf="testResultForm.controls['grade'].hasError('max')">
+                  <mat-error>Grade cannot exceed 100</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Subject Selector -->
+              <mat-form-field>
+                <mat-label>Subject</mat-label>
+                <mat-select formControlName="subject">
+                  <ng-container *ngFor="let subject of subjects; trackBy: trackByFn">
+                    <mat-option [value]="subject">{{ subject }}</mat-option>
+                  </ng-container>
+                </mat-select>
+                <ng-container *ngIf="testResultForm.controls['subject'].hasError('required')">
+                  <mat-error>Subject is required</mat-error>
+                </ng-container>
+              </mat-form-field>
+            </form>
+
+            <mat-divider></mat-divider>
+
+            <!-- Trainee Details Section -->
+            <h3>Trainee Details</h3>
+            <form [formGroup]="traineeForm" class="details-form">
+              <!-- Trainee ID -->
+              <mat-form-field>
+                <mat-label>Trainee ID</mat-label>
+                <input matInput formControlName="id" [readonly]="true">
+                <mat-hint>ID cannot be edited</mat-hint>
+              </mat-form-field>
+
+              <!-- Name -->
+              <mat-form-field>
+                <mat-label>Name</mat-label>
+                <input matInput formControlName="name" [readonly]="false">
+                <ng-container *ngIf="traineeForm.controls['name'].hasError('required')">
+                  <mat-error>Name is required</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Email -->
+              <mat-form-field>
+                <mat-label>Email</mat-label>
+                <input matInput formControlName="email" type="email" [readonly]="false">
+                <ng-container *ngIf="traineeForm.controls['email'].errors">
+                  <mat-error *ngIf="traineeForm.controls['email'].hasError('required')">Email is required</mat-error>
+                  <mat-error *ngIf="traineeForm.controls['email'].hasError('email')">Invalid email format</mat-error>
+                </ng-container>
+              </mat-form-field>
+
+              <!-- Date Joined -->
+              <mat-form-field>
+                <mat-label>Date Joined</mat-label>
+                <input matInput [matDatepicker]="joinedPicker" formControlName="dateJoined" [readonly]="false">
+                <mat-datepicker-toggle matIconSuffix [for]="joinedPicker"></mat-datepicker-toggle>
+                <mat-datepicker #joinedPicker></mat-datepicker>
+              </mat-form-field>
+
+              <!-- Address -->
+              <mat-form-field>
+                <mat-label>Address</mat-label>
+                <input matInput formControlName="address" [readonly]="false">
+              </mat-form-field>
+
+              <!-- City -->
+              <mat-form-field>
+                <mat-label>City</mat-label>
+                <input matInput formControlName="city" [readonly]="false">
+              </mat-form-field>
+
+              <!-- Country -->
+              <mat-form-field>
+                <mat-label>Country</mat-label>
+                <input matInput formControlName="country" [readonly]="false">
+              </mat-form-field>
+
+              <!-- ZIP -->
+              <mat-form-field>
+                <mat-label>Zip/Postal Code</mat-label>
+                <input matInput formControlName="zip" [readonly]="false">
+              </mat-form-field>
+            </form>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <button mat-raised-button color="warn" style="color:white" (click)="selectedTestResult() && deleteTestResult(selectedTestResult()!)" *ngIf="selectedTestResult()">Delete</button>
+            <button mat-raised-button color="primary" style="color:white" (click)="saveTrainee()" [disabled]="!traineeForm.valid">Save</button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </ng-container>
+  </div>
+</div>
