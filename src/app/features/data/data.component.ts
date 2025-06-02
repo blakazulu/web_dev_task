@@ -69,17 +69,12 @@ export class DataComponent implements OnInit, AfterViewInit {
   // Table data source with pagination support
   dataSource = new MatTableDataSource<TestResult>([]);
 
-  // Table configuration
-  displayedColumns: string[] = ['id', 'traineeName', 'date', 'grade', 'subject', 'actions'];
-
   // Pagination
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild(MatTable) table!: MatTable<TestResult>;
-  
-  // Default pagination values (used before ViewChild is initialized)
+
   defaultPageSize = 10;
-  defaultPageIndex = 0;
   
   // Pagination helper methods
   getStartIndex(): number {
@@ -254,42 +249,6 @@ export class DataComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // Helper methods for updating filter properties
-  updateFilterProperty(property: keyof DataFilter, value: any): void {
-    // Update the service's data filter
-    this.filterStateService.dataFilter.update(filter => ({
-      ...filter,
-      [property]: value
-    }));
-  }
-
-  updateFilterGradeMin(value: number | undefined): void {
-    this.filterStateService.dataFilter.update(filter => ({
-      ...filter,
-      grade: {...filter.grade, min: value}
-    }));
-  }
-
-  updateFilterGradeMax(value: number | undefined): void {
-    this.filterStateService.dataFilter.update(filter => ({
-      ...filter,
-      grade: {...filter.grade, max: value}
-    }));
-  }
-
-  updateFilterDateAfter(value: Date | undefined): void {
-    this.filterStateService.dataFilter.update(filter => ({
-      ...filter,
-      date: {...filter.date, after: value}
-    }));
-  }
-
-  updateFilterDateBefore(value: Date | undefined): void {
-    this.filterStateService.dataFilter.update(filter => ({
-      ...filter,
-      date: {...filter.date, before: value}
-    }));
-  }
 
   ngOnInit(): void {
     // Check if data already exists, if not generate 40 trainees
@@ -532,16 +491,6 @@ export class DataComponent implements OnInit, AfterViewInit {
     }
   }
 
-  resetDataSource(): void {
-    this.dataSource.data = this.testResults();
-    if (this.paginator) {
-      this.paginator.firstPage();
-    } else {
-      // If paginator isn't available yet, just set the data
-      this.dataSource.data = this.testResults();
-    }
-  }
-
   selectTestResult(testResult: TestResult): void {
     this.selectedTestResult.set(testResult);
 
@@ -600,42 +549,6 @@ export class DataComponent implements OnInit, AfterViewInit {
     this.applyFilter();
   }
 
-  /**
-   * Adds more trainees to the existing dataset
-   * @param count Number of additional trainees to add
-   */
-  addMoreTrainees(count: number): void {
-    this.traineeService.addMoreTrainees(count);
-
-    // Apply filters to update the view
-    this.applyFilter();
-  }
-
-  saveTestResult(): void {
-    if (this.testResultForm.valid) {
-      const testResult: TestResult = this.testResultForm.value;
-
-      // Find the trainee name for display purposes
-      const trainee = this.trainees().find(t => t.id === testResult.traineeId);
-      testResult.traineeName = trainee ? trainee.name : 'Unknown';
-
-      if (this.selectedTestResult()) {
-        // Update existing test result
-        this.traineeService.updateTestResult(testResult);
-        this.snackBar.open('Test result updated successfully', 'Close', {duration: 3000});
-      } else {
-        // Create new test result
-        this.traineeService.addTestResult(testResult);
-        this.snackBar.open('Test result added successfully', 'Close', {duration: 3000});
-      }
-
-      // Update local signal after service update
-      this.testResults.set(this.traineeService.testResults());
-      this.applyFilter();
-      this.clearSelection();
-    }
-  }
-
   saveTrainee(): void {
     if (this.traineeForm.valid) {
       const trainee: Trainee = this.traineeForm.value;
@@ -676,40 +589,6 @@ export class DataComponent implements OnInit, AfterViewInit {
     }
   }
 
-  deleteTrainee(trainee: Trainee | null): void {
-    if (!trainee) return;
-
-    // Check if there are test results associated with this trainee
-    const associatedResults = this.testResults().filter(r => r.traineeId === trainee.id);
-
-    if (associatedResults.length > 0) {
-      this.snackBar.open('Cannot delete trainee with associated test results', 'Close', {duration: 3000});
-      return;
-    }
-
-    if (confirm(`Are you sure you want to delete trainee ${trainee.name}?`)) {
-      this.traineeService.deleteTrainee(trainee.id);
-      this.snackBar.open('Trainee deleted successfully', 'Close', {duration: 3000});
-
-      // Update local signal after service update
-      this.trainees.set(this.traineeService.trainees());
-
-      if (this.selectedTrainee() && this.selectedTrainee()!.id === trainee.id) {
-        this.clearSelection();
-      }
-
-      this.cdr.markForCheck();
-    }
-  }
-
-  addNewTestResult(): void {
-    this.clearSelection();
-    this.testResultForm.patchValue({
-      id: this.generateNewId(),
-      date: new Date()
-    });
-  }
-
   addNewTrainee(): void {
     // Clear current selection
     this.clearSelection();
@@ -732,135 +611,6 @@ export class DataComponent implements OnInit, AfterViewInit {
 
   formatDate(date: string | Date): string {
     return new Date(date).toLocaleDateString();
-  }
-
-  // Track function for ngFor directives
-  trackById(index: number, item: any): number {
-    return item.id;
-  }
-
-  // Data export functions
-  exportToCSV(): void {
-    const results = this.filteredTestResults();
-    if (results.length === 0) {
-      this.snackBar.open('No data to export', 'Close', {duration: 3000});
-      return;
-    }
-
-    // Define the CSV header row
-    const headers = ['ID', 'Trainee ID', 'Trainee Name', 'Date', 'Grade', 'Subject'];
-
-    // Convert data to CSV rows
-    const csvRows = [
-      headers.join(','),
-      ...results.map(result => {
-        const formattedDate = this.formatDate(result.date);
-        // Escape fields with commas
-        const escapeCsv = (field: string) => {
-          const str = String(field);
-          return str.includes(',') ? `"${str}"` : str;
-        };
-
-        return [
-          result.id,
-          result.traineeId,
-          escapeCsv(result.traineeName || ''),
-          escapeCsv(formattedDate),
-          result.grade,
-          escapeCsv(result.subject)
-        ].join(',');
-      })
-    ];
-
-    // Join rows with newline characters
-    const csvContent = csvRows.join('\n');
-
-    // Create a Blob and download link
-    const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-
-    // Create and trigger download
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `trainee-results-${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    this.snackBar.open('Data exported to CSV successfully', 'Close', {duration: 3000});
-  }
-
-  exportToJSON(): void {
-    const results = this.filteredTestResults();
-    if (results.length === 0) {
-      this.snackBar.open('No data to export', 'Close', {duration: 3000});
-      return;
-    }
-
-    // Create formatted export data with simpler dates
-    const exportData = results.map(result => ({
-      ...result,
-      date: this.formatDate(result.date)
-    }));
-
-    // Convert to JSON string with pretty formatting
-    const jsonContent = JSON.stringify(exportData, null, 2);
-
-    // Create a Blob and download link
-    const blob = new Blob([jsonContent], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-
-    // Create and trigger download
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `trainee-results-${new Date().toISOString().slice(0, 10)}.json`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    this.snackBar.open('Data exported to JSON successfully', 'Close', {duration: 3000});
-  }
-
-  exportAllData(): void {
-    const data = {
-      trainees: this.trainees(),
-      testResults: this.testResults().map(result => ({
-        ...result,
-        date: this.formatDate(result.date)
-      }))
-    };
-
-    // Convert to JSON string with pretty formatting
-    const jsonContent = JSON.stringify(data, null, 2);
-
-    // Create a Blob and download link
-    const blob = new Blob([jsonContent], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-
-    // Create and trigger download
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `trainee-data-export-${new Date().toISOString().slice(0, 10)}.json`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    this.snackBar.open('All data exported successfully', 'Close', {duration: 3000});
-  }
-
-  clearFilters(): void {
-    this.filterQuery = '';
-    this.filter.set({
-      id: '',
-      name: '',
-      subject: '',
-      grade: {min: undefined, max: undefined},
-      date: {before: undefined, after: undefined}
-    });
-    this.applyFilter();
   }
 
   /**
